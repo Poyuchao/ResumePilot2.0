@@ -54,16 +54,17 @@ app/
 ├── services/                # 商業邏輯層
 │   ├── resume_service.py    # 履歷 CRUD + chunks 存取
 │   ├── analysis_service.py  # AI 分析（3 種 mode）
+│   ├── conversation_service.py # 對話系統（含 SSE Streaming）
 │   ├── pdf_service.py       # PDF → 純文字
 │   ├── chunking_service.py  # Section-based chunking
 │   ├── llm_service.py       # LangChain LLM 初始化
-│   ├── rag_service.py       # RAG chain 組裝
+│   ├── rag_service.py       # RAG chain 組裝 + Prompt Templates
 │   └── vectorstore_service.py # Chroma 向量存取
 └── api/v1/                  # API Routes
     ├── router.py            # 路由總管
     ├── resumes.py           # 履歷 CRUD + PDF 上傳
     ├── analysis.py          # AI 分析
-    └── conversations.py     # 對話系統
+    └── conversations.py     # 對話系統 + Streaming
 ```
 
 ## Database Schema
@@ -113,28 +114,29 @@ resumes (履歷主表)
 
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
-| POST | `/api/v1/resumes/` | 上傳純文字履歷 | ✅ |
-| POST | `/api/v1/resumes/upload-pdf` | 上傳 PDF 履歷 | ✅ |
-| GET | `/api/v1/resumes/` | 列出所有履歷 | ✅ |
-| GET | `/api/v1/resumes/{id}` | 取得單一履歷 | ✅ |
-| DELETE | `/api/v1/resumes/{id}` | 刪除履歷 | ✅ |
+| POST | `/api/v1/resumes/` | 上傳純文字履歷 | done |
+| POST | `/api/v1/resumes/upload-pdf` | 上傳 PDF 履歷 | done |
+| GET | `/api/v1/resumes/` | 列出所有履歷 | done |
+| GET | `/api/v1/resumes/{id}` | 取得單一履歷 | done |
+| DELETE | `/api/v1/resumes/{id}` | 刪除履歷 | done |
 
 ### AI Analysis
 
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
-| POST | `/api/v1/resumes/{id}/analysis/` | 觸發分析 (body: mode) | ✅ |
-| GET | `/api/v1/resumes/{id}/analysis/` | 列出所有分析結果 | ✅ |
-| GET | `/api/v1/resumes/{id}/analysis/{mode}` | 取得特定 mode 結果 | ✅ |
+| POST | `/api/v1/resumes/{id}/analysis/` | 觸發分析 (body: mode) | done |
+| GET | `/api/v1/resumes/{id}/analysis/` | 列出所有分析結果 | done |
+| GET | `/api/v1/resumes/{id}/analysis/{mode}` | 取得特定 mode 結果 | done |
 
 ### Conversations
 
 | Method | Path | Description | Status |
 |--------|------|-------------|--------|
-| POST | `/api/v1/resumes/{id}/conversations/` | 建立對話 session | ✅ |
-| GET | `/api/v1/resumes/{id}/conversations/` | 列出對話 | ✅ |
-| POST | `.../conversations/{cid}/messages` | 送出訊息 + AI 回覆 | ✅ |
-| GET | `.../conversations/{cid}/messages` | 取得訊息歷史 | ✅ |
+| POST | `/api/v1/resumes/{id}/conversations/` | 建立對話 session | done |
+| GET | `/api/v1/resumes/{id}/conversations/` | 列出對話 | done |
+| POST | `.../conversations/{cid}/messages/stream` | Streaming 送訊息 (SSE) | done |
+| POST | `.../conversations/{cid}/messages` | 送出訊息 + AI 回覆 | done |
+| GET | `.../conversations/{cid}/messages` | 取得訊息歷史 | done |
 
 ## 核心流程
 
@@ -168,26 +170,41 @@ Section-based chunking (chunking_service)
 - **hr**: 資深 HR 主管，招募者視角
 - **technical**: 技術面試官，評估技術深度
 
-### Conversation 對話系統 (RAG + 多輪對話)
+### Conversation 對話系統 (RAG + 多輪對話 + Streaming)
 
 ```
 使用者送出問題
     ↓
 1. Chroma 搜尋相關 chunks（filter: resume_id，top-K=3）
     ↓
-2. 撈最近 10 則對話歷史
+2. 撈最近 10 則對話歷史（context trimming）
     ↓
 3. 組合 prompt: system(角色) + context(chunks) + history + question
     ↓
 4. LLM 回答
+   ├── 非 Streaming: chain.ainvoke() → 一次回傳完整結果
+   └── Streaming: chain.astream() → SSE 逐 token 回傳
     ↓
 5. 儲存 user msg + assistant msg（含 citations + token_usage）
 ```
 
-- **mode** 同樣支援 general / hr / technical，切換 AI 角色
-- **citations**: 回傳用了哪些 chunks（section_name, chunk_index, content_preview）
-- **token_usage**: 估算的 prompt/completion tokens
-- 每份履歷可建多個 conversation session，每個 session 獨立對話歷史
+#### SSE Streaming 事件格式
+
+```
+event: citations
+data: [{"section_name": "experience", "chunk_index": 0, "content_preview": "..."}]
+
+event: token
+data: "AI 回覆的"
+
+event: token
+data: "每一個 chunk"
+
+event: done
+data: {"message_id": "uuid", "token_usage": {"estimated_prompt_tokens": 889, "estimated_completion_tokens": 277}}
+```
+
+**注意：** `/messages/stream` endpoint 必須在 `/messages` 前面註冊，否則 FastAPI 路由匹配會 404。
 
 ## 環境變數 (.env)
 
@@ -213,4 +230,7 @@ CLAUDE_MODEL=claude-sonnet-4-6
 - [x] Section-based Chunking
 - [x] Chroma 向量存入 (持久化)
 - [x] Conversation 對話系統 (RAG + 多輪對話)
-- [ ] 前後端串接
+- [x] SSE Streaming (逐 token 回傳 + 可中斷)
+- [x] 前後端串接完成
+- [ ] GCP 部署 (Dockerfile + Cloud Run)
+- [ ] Redis 快取實作 (對話上下文 Cache-Aside Pattern)
