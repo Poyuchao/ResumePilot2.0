@@ -1,0 +1,30 @@
+# 開發環境用的 Docker Compose
+# 啟動指令：docker compose up -d
+# 停止指令：docker compose down
+# 查看狀態：docker compose ps
+
+services:
+  # --- PostgreSQL 資料庫 ---
+  postgres:
+    image: postgres:16           # 用 PostgreSQL 16 的官方 image
+    container_name: resumepilot-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: resume_copilot
+    ports:
+      - "5432:5432"              # 本機 5432 → 容器 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # 資料持久化，重啟不會消失
+
+  # --- Redis 快取 ---
+  redis:
+    image: redis:7               # 用 Redis 7 的官方 image
+    container_name: resumepilot-redis
+    ports:
+      - "6379:6379"              # 本機 6379 → 容器 6379
+
+# volumes 區塊：定義持久化儲存空間
+# 沒有這個的話，container 刪掉資料就沒了
+volumes:
+  postgres_data:
