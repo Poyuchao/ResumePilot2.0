@@ -33,6 +33,8 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             pages_text.append(text)
 
     full_text = "\n".join(pages_text).strip()
+    # 移除 null bytes — 某些 PDF 解析會產生 \x00，PostgreSQL 不接受
+    full_text = full_text.replace("\x00", "")
 
     if not full_text:
         raise ValueError("PDF 中沒有可提取的文字，可能是純圖片的掃描檔")

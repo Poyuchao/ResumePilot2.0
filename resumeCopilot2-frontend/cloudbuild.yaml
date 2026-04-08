@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://resumepilot-backend-338336680245.asia-east1.run.app'
+      - '-t'
+      - 'asia-east1-docker.pkg.dev/resumepilot-poyu/resumepilot-repo/frontend'
+      - '.'
+images:
+  - 'asia-east1-docker.pkg.dev/resumepilot-poyu/resumepilot-repo/frontend'

@@ -5,7 +5,9 @@
  * 每個函式對應一個後端 endpoint，回傳型別跟後端 Schema 對齊。
  */
 
-const BASE_URL = "http://localhost:8000/api/v1";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+  : "http://localhost:8000/api/v1";
 
 // ---------- 型別定義（對齊後端 Pydantic Schema） ----------
 

@@ -19,10 +19,6 @@ class Settings(BaseSettings):
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
 
-    # --- Chroma ---
-    chroma_host: str = "localhost"
-    chroma_port: int = 8000
-
     # --- LLM ---
     llm_provider: str = "openai"          # "openai" 或 "claude"
     openai_api_key: str = ""

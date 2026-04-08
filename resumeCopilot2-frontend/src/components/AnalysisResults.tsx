@@ -1,8 +1,10 @@
 "use client";
 
-import { GraduationCap, Briefcase, Lightbulb, FileText } from "lucide-react";
+import { useState } from "react";
+import { GraduationCap, Briefcase, Lightbulb, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import type { AnalysisResponse } from "@/lib/api";
 
 interface AnalysisResultsProps {
@@ -10,6 +12,8 @@ interface AnalysisResultsProps {
 }
 
 export function AnalysisResults({ data }: AnalysisResultsProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   if (!data) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -22,9 +26,34 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
   // education_background 從後端回來是 dict，例如 {school, major, degree}
   const edu = data.education_background;
 
+  if (!isExpanded) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Analysis Results</h2>
+          <Button variant="ghost" size="sm" onClick={() => setIsExpanded(true)}>
+            <ChevronDown className="size-4 mr-1" />
+            Show Details
+          </Button>
+        </div>
+        <Card className="bg-muted/50">
+          <CardContent className="pt-6">
+            <p className="text-sm leading-relaxed line-clamp-3">{data.summary}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Analysis Results</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Analysis Results</h2>
+        <Button variant="ghost" size="sm" onClick={() => setIsExpanded(false)}>
+          <ChevronUp className="size-4 mr-1" />
+          Collapse
+        </Button>
+      </div>
 
       <div className="grid gap-4">
         <Card>

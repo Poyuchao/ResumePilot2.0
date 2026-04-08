@@ -1,10 +1,10 @@
 "use client";
 
-import { Upload, Sparkles, ChevronDown, ChevronUp, Edit } from "lucide-react";
+import { Upload, Sparkles, ChevronDown, ChevronUp, Edit, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Card, CardContent } from "./ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ResumeInputProps {
   resume: string;
@@ -13,6 +13,7 @@ interface ResumeInputProps {
   onFileUpload: (file: File) => void;
   isAnalyzing: boolean;
   isAnalyzed: boolean;
+  isUploading: boolean;
   fileName: string | null;
 }
 
@@ -23,9 +24,15 @@ export function ResumeInput({
   onFileUpload,
   isAnalyzing,
   isAnalyzed,
+  isUploading,
   fileName,
 }: ResumeInputProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // 分析完成後自動收合
+  useEffect(() => {
+    if (isAnalyzed) setIsExpanded(false);
+  }, [isAnalyzed]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -106,23 +113,31 @@ export function ResumeInput({
               accept=".txt,.doc,.docx,.pdf"
               onChange={handleFileUpload}
               className="hidden"
+              disabled={isUploading}
             />
-            <Button variant="outline" size="sm" asChild>
-              <span className="cursor-pointer">
-                <Upload className="mr-2 size-4" />
-                Upload File
+            <Button variant="outline" size="sm" asChild disabled={isUploading}>
+              <span className={isUploading ? "pointer-events-none opacity-50" : "cursor-pointer"}>
+                {isUploading ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Upload className="mr-2 size-4" />}
+                {isUploading ? "Uploading..." : "Upload File"}
               </span>
             </Button>
           </label>
         </div>
       </div>
 
-      <Textarea
-        placeholder="Paste your resume content here..."
-        value={resume}
-        onChange={(e) => onResumeChange(e.target.value)}
-        className="min-h-[200px] resize-none"
-      />
+      {isUploading ? (
+        <div className="min-h-[200px] rounded-md border flex flex-col items-center justify-center gap-3 text-muted-foreground">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-sm">Uploading and parsing your resume...</p>
+        </div>
+      ) : (
+        <Textarea
+          placeholder="Paste your resume content here..."
+          value={resume}
+          onChange={(e) => onResumeChange(e.target.value)}
+          className="min-h-[200px] resize-none"
+        />
+      )}
 
       <Button
         onClick={onAnalyze}

@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import router as v1_router
+from sqlalchemy import text
 from app.db.database import engine, Base
 
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
     """
     # --- Startup ---
     async with engine.begin() as conn:
+        # 啟用 pgvector extension（Cloud SQL 需要）
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     yield
     # --- Shutdown ---
@@ -41,7 +44,7 @@ app = FastAPI(
 # CORS 設定 — 允許前端開發伺服器存取
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js 預設 port
+    allow_origins=["*"],  # 部署後再限定特定 domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,3 +58,30 @@ app.include_router(v1_router)
 async def health_check():
     """健康檢查 endpoint"""
     return {"status": "ok"}
+
+
+@app.get("/debug/pgvector")
+async def debug_pgvector():
+    """確認 pgvector 是否正常運作"""
+    async with engine.begin() as conn:
+        # 檢查 extension
+        ext = await conn.execute(text("SELECT extname, extversion FROM pg_extension WHERE extname = 'vector'"))
+        extension = ext.fetchone()
+
+        # 檢查 langchain pgvector 建立的表
+        tables = await conn.execute(text(
+            "SELECT tablename FROM pg_tables WHERE tablename IN ('langchain_pg_collection', 'langchain_pg_embedding')"
+        ))
+        table_list = [row[0] for row in tables.fetchall()]
+
+        # 檢查有多少 embeddings
+        count = 0
+        if "langchain_pg_embedding" in table_list:
+            result = await conn.execute(text("SELECT COUNT(*) FROM langchain_pg_embedding"))
+            count = result.scalar()
+
+    return {
+        "pgvector_extension": {"name": extension[0], "version": extension[1]} if extension else None,
+        "tables": table_list,
+        "total_embeddings": count,
+    }

@@ -36,6 +36,9 @@ export default function Home() {
   // Streaming 中斷用的 AbortController ref
   const abortRef = useRef<AbortController | null>(null);
 
+  // 上傳狀態
+  const [isUploading, setIsUploading] = useState(false);
+
   // 設定
   const [mode, setMode] = useState<"general" | "hr" | "technical">("general");
   const [tokensUsed, setTokensUsed] = useState(0);
@@ -52,6 +55,7 @@ export default function Home() {
 
   /** 上傳 PDF — 走後端 API，回傳 resumeId + 解析出的文字 */
   const handleFileUpload = async (file: File) => {
+    setIsUploading(true);
     try {
       const res = await uploadResumePdf(file);
       setResumeId(res.id);
@@ -63,6 +67,8 @@ export default function Home() {
       setAnalysisError(null);
     } catch (err) {
       setAnalysisError(err instanceof Error ? err.message : "PDF 上傳失敗");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -224,14 +230,14 @@ export default function Home() {
   return (
     <div className="h-screen w-full bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b px-6 py-4">
+      <header className="border-b px-4 py-3 md:px-6 md:py-4">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-lg bg-primary flex items-center justify-center">
-            <Brain className="size-6 text-primary-foreground" />
+          <div className="size-8 md:size-10 rounded-lg bg-primary flex items-center justify-center">
+            <Brain className="size-4 md:size-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold">AI Resume Copilot</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg md:text-2xl font-semibold">AI Resume Copilot</h1>
+            <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
               Analyze and enhance your resume with AI assistance
             </p>
           </div>
@@ -239,10 +245,10 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Main Content Area */}
         <div className="flex-1 overflow-auto">
-          <div className="max-w-4xl mx-auto p-6 space-y-8">
+          <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8">
             <ResumeInput
               resume={resume}
               onResumeChange={(text) => {
@@ -254,6 +260,7 @@ export default function Home() {
               onFileUpload={handleFileUpload}
               isAnalyzing={isAnalyzing}
               isAnalyzed={!!analysisData}
+              isUploading={isUploading}
               fileName={fileName}
             />
 
@@ -285,8 +292,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-80 border-l bg-muted/30 p-6 overflow-auto">
+        {/* Right Sidebar — 手機版移到底部，桌面版在右側 */}
+        <div className="w-full md:w-80 border-t md:border-t-0 md:border-l bg-muted/30 p-4 md:p-6 overflow-auto">
           <SettingsPanel
             mode={mode}
             onModeChange={handleModeChange}
